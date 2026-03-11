@@ -78,12 +78,14 @@ function renderPipelineRow(item, index, canDrag) {
     /^testnet\b/i.test(l.name.trim())
   );
 
-  // Use parchment text so dark label colours (e.g. forest #0E2618) stay readable
-  const labelPill = (l) =>
-    `<span class="inline-flex items-center px-1.5 py-px rounded text-xs"
-           style="background:#${l.color}20;color:#E2E0C9;border:1px solid #${l.color}55;font-family:Arial,Helvetica,sans-serif;">
+  // Use label colour as text (readable on sandy bg); darken forest black slightly
+  const labelPill = (l) => {
+    const textColor = l.color.toLowerCase() === '0e2618' ? '#4E635E' : `#${l.color}`;
+    return `<span class="inline-flex items-center px-1.5 py-px rounded text-xs font-medium"
+           style="background:#${l.color}18;color:${textColor};border:1px solid #${l.color}50;font-family:Arial,Helvetica,sans-serif;">
        ${escapeHtml(l.name)}
      </span>`;
+  };
 
   const metaLabelsHtml = typeLabels.map(labelPill).join('');
   const releaseHtml = releaseLabels.length

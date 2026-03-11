@@ -23,8 +23,9 @@ export function renderPipeline(container, items, projectTitle) {
         </div>
       </div>
 
-      <div class="hidden md:grid md:grid-cols-[1fr_8rem_9rem_6rem] gap-4 px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wider" style="font-family:Arial,Helvetica,sans-serif;border-bottom:1px solid rgba(78,99,94,0.3);">
+      <div class="hidden md:grid md:grid-cols-[1fr_5rem_8rem_9rem_6rem] gap-4 px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wider" style="font-family:Arial,Helvetica,sans-serif;border-bottom:1px solid rgba(78,99,94,0.3);">
         <div>Journey</div>
+        <div>Deps</div>
         <div>Type</div>
         <div>Target Release</div>
         <div class="text-right">Status</div>
@@ -81,7 +82,7 @@ function renderPipelineRow(item, index, canDrag) {
         data-repo="${escapeHtml(repo)}"
         data-issue="${issue.number}"
         draggable="${canDrag}"
-        class="pipeline-row grid grid-cols-[1fr_6rem] md:grid-cols-[1fr_8rem_9rem_6rem] gap-4 items-center px-4 py-3 rounded cursor-pointer transition-all select-none ${canDrag ? 'draggable-row' : ''}"
+        class="pipeline-row grid grid-cols-[1fr_6rem] md:grid-cols-[1fr_5rem_8rem_9rem_6rem] gap-4 items-center px-4 py-3 rounded cursor-pointer transition-all select-none ${canDrag ? 'draggable-row' : ''}"
         style="background:rgba(12,43,45,0.55);border:1px solid rgba(78,99,94,0.3);border-left:3px solid ${blockedTeam ? teamColor(blockedTeam, 0.7) : 'transparent'};"
         onmouseover="this.style.background='rgba(78,99,94,0.18)'"
         onmouseout="this.style.background='rgba(12,43,45,0.55)'"
@@ -96,11 +97,10 @@ function renderPipelineRow(item, index, canDrag) {
               ${escapeHtml(issue.title)}
             </span>
           </div>
-          <!-- Pending work summary -->
-          <div class="flex flex-wrap items-center gap-1.5 mt-1.5 ml-7">
-            <div id="pending-${item.id}" class="contents"></div>
-          </div>
         </div>
+
+        <!-- Dependencies dots column (desktop) -->
+        <div id="pending-${item.id}" class="hidden md:flex items-center gap-1 flex-wrap"></div>
 
         <!-- Journey Type column (desktop) -->
         <div class="hidden md:flex items-center flex-wrap gap-1">
@@ -187,36 +187,25 @@ async function loadAllPendingSummaries(items) {
     }
 
     const el = document.getElementById(`pending-${item.id}`);
-    if (el) el.innerHTML = renderPendingBadges(teamCounts);
+    if (el) el.innerHTML = renderDepDots(teamCounts);
   }
 }
 
-function renderPendingBadges(teamCounts) {
+// Dep dot colours: coral = not tracked, orange = open/pending, sage = closed/done
+const DEP_COLORS = { notTracked: '#E46962', pending: '#FA7B17', done: '#808C78' };
+
+function renderDepDots(teamCounts) {
   if (!teamCounts.size) return '';
 
   return [...teamCounts.entries()].map(([team, { notTracked, pending, done }]) => {
-    let label, style;
+    let color, label;
+    if (pending > 0)      { color = DEP_COLORS.pending;    label = `${team}: pending`; }
+    else if (notTracked > 0) { color = DEP_COLORS.notTracked; label = `${team}: not tracked`; }
+    else                  { color = DEP_COLORS.done;       label = `${team}: done`; }
 
-    if (pending > 0) {
-      const parts = [`${pending} pending`];
-      if (done > 0)       parts.push(`${done} done`);
-      if (notTracked > 0) parts.push(`${notTracked} not tracked`);
-      label = `${team} · ${parts.join(', ')}`;
-      style = `background:${teamColor(team, 0.12)};border-color:${teamColor(team, 0.35)};color:${teamColor(team, 0.9)};`;
-    } else if (notTracked > 0 && done === 0) {
-      label = `${team} · not tracked`;
-      style = `background:rgba(14,38,24,0.4);border-color:rgba(78,99,94,0.2);color:#808C78;`;
-    } else if (notTracked > 0) {
-      // mixed done + not tracked
-      label = `${team} · ${done} done, ${notTracked} not tracked`;
-      style = `background:rgba(14,38,24,0.4);border-color:rgba(78,99,94,0.25);color:#808C78;`;
-    } else {
-      label = `${team} · done`;
-      style = `background:rgba(14,38,24,0.5);border-color:rgba(78,99,94,0.25);color:#808C78;`;
-    }
-
-    return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs border"
-                  style="${style}font-family:Arial,Helvetica,sans-serif;">${escapeHtml(label)}</span>`;
+    return `<span title="${escapeHtml(label)}"
+                  style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;"
+                  aria-label="${escapeHtml(label)}"></span>`;
   }).join('');
 }
 

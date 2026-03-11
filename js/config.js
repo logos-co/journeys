@@ -1,13 +1,12 @@
 /**
  * config.js — Config load/save via localStorage
- * Keys: ppd_owner, ppd_project_number, ppd_pat_read, ppd_pat_write
+ * Keys: ppd_owner, ppd_project_number, ppd_pat
  */
 
 const KEYS = {
   OWNER:          'ppd_owner',
   PROJECT_NUMBER: 'ppd_project_number',
-  PAT_READ:       'ppd_pat_read',
-  PAT_WRITE:      'ppd_pat_write',
+  PAT:            'ppd_pat',
 };
 
 // Default project: logos-co / project 12
@@ -16,13 +15,15 @@ const DEFAULTS = {
   projectNumber: 12,
 };
 
-// Migrate old single-PAT key → write PAT
+// Migrate from old split-PAT keys
 function migrate() {
-  const old = localStorage.getItem('ppd_pat');
-  if (old && !localStorage.getItem(KEYS.PAT_WRITE)) {
-    localStorage.setItem(KEYS.PAT_WRITE, old);
+  const write = localStorage.getItem('ppd_pat_write');
+  const read  = localStorage.getItem('ppd_pat_read');
+  if ((write || read) && !localStorage.getItem(KEYS.PAT)) {
+    localStorage.setItem(KEYS.PAT, write || read);
   }
-  if (old) localStorage.removeItem('ppd_pat');
+  localStorage.removeItem('ppd_pat_write');
+  localStorage.removeItem('ppd_pat_read');
 }
 
 export function getConfig() {
@@ -30,23 +31,11 @@ export function getConfig() {
   return {
     owner:         localStorage.getItem(KEYS.OWNER) || DEFAULTS.owner,
     projectNumber: parseInt(localStorage.getItem(KEYS.PROJECT_NUMBER) || '0', 10) || DEFAULTS.projectNumber,
-    patRead:       localStorage.getItem(KEYS.PAT_READ)  || '',
-    patWrite:      localStorage.getItem(KEYS.PAT_WRITE) || '',
+    pat:           localStorage.getItem(KEYS.PAT) || '',
   };
 }
 
-/** Best available PAT for read operations (write PAT has all scopes, use it if available). */
-export function getReadPAT() {
-  const { patRead, patWrite } = getConfig();
-  return patWrite || patRead || '';
-}
-
-/** Write PAT only — required for mutations. */
-export function getWritePAT() {
-  return getConfig().patWrite || '';
-}
-
-export function saveConfig({ owner, projectNumber, patRead, patWrite }) {
+export function saveConfig({ owner, projectNumber, pat }) {
   if (owner !== undefined) {
     if (owner) localStorage.setItem(KEYS.OWNER, owner.trim());
     else        localStorage.removeItem(KEYS.OWNER);
@@ -55,13 +44,9 @@ export function saveConfig({ owner, projectNumber, patRead, patWrite }) {
     if (projectNumber) localStorage.setItem(KEYS.PROJECT_NUMBER, String(projectNumber));
     else               localStorage.removeItem(KEYS.PROJECT_NUMBER);
   }
-  if (patRead !== undefined) {
-    if (patRead) localStorage.setItem(KEYS.PAT_READ, patRead.trim());
-    else         localStorage.removeItem(KEYS.PAT_READ);
-  }
-  if (patWrite !== undefined) {
-    if (patWrite) localStorage.setItem(KEYS.PAT_WRITE, patWrite.trim());
-    else          localStorage.removeItem(KEYS.PAT_WRITE);
+  if (pat !== undefined) {
+    if (pat) localStorage.setItem(KEYS.PAT, pat.trim());
+    else     localStorage.removeItem(KEYS.PAT);
   }
 }
 
@@ -74,12 +59,30 @@ export function isConfigured() {
   return Boolean(owner && projectNumber);
 }
 
-/** True if any PAT is set (enables authenticated reads). */
 export function hasPAT() {
-  return Boolean(getReadPAT());
+  return Boolean(getConfig().pat);
 }
 
-/** True only if write PAT is set (enables mutations). */
+// ---------------------------------------------------------------------------
+// Admin mode — in-memory only, defaults to false on every page load
+// ---------------------------------------------------------------------------
+
+let _adminMode = false;
+
+export function isAdminMode()    { return _adminMode; }
+export function toggleAdminMode() { _adminMode = !_adminMode; return _adminMode; }
+
+/** True when a PAT is set AND admin mode is active. Controls all write actions. */
 export function hasWritePAT() {
-  return Boolean(getWritePAT());
+  return Boolean(getConfig().pat && _adminMode);
+}
+
+/** PAT for read API calls — always use the stored token when available. */
+export function getReadPAT() {
+  return getConfig().pat || '';
+}
+
+/** PAT for write API calls — only valid in admin mode. */
+export function getWritePAT() {
+  return _adminMode ? (getConfig().pat || '') : '';
 }

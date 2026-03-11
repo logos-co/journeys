@@ -2,7 +2,7 @@
  * app.js — Main entry point, routing, state management
  */
 
-import { getConfig, saveConfig, clearConfig, isConfigured, hasPAT, hasWritePAT, getReadPAT } from './config.js';
+import { getConfig, saveConfig, clearConfig, isConfigured, hasPAT, hasWritePAT, isAdminMode, toggleAdminMode, getReadPAT } from './config.js';
 import { fetchProjectItems } from './api.js';
 import { renderPipeline } from './pipeline.js';
 import { registerLabelHandlers } from './detail.js';
@@ -110,8 +110,7 @@ function openSettings() {
   const config = getConfig();
   document.getElementById('input-owner').value = config.owner || '';
   document.getElementById('input-project').value = config.projectNumber || '';
-  document.getElementById('input-pat-read').value = config.patRead || '';
-  document.getElementById('input-pat-write').value = config.patWrite || '';
+  document.getElementById('input-pat').value = config.pat || '';
   document.getElementById('settings-error').classList.add('hidden');
 }
 
@@ -127,8 +126,7 @@ function initSettings() {
   document.getElementById('btn-settings-save')?.addEventListener('click', async () => {
     const owner = document.getElementById('input-owner')?.value.trim();
     const projectNumberStr = document.getElementById('input-project')?.value.trim();
-    const patRead = document.getElementById('input-pat-read')?.value.trim();
-    const patWrite = document.getElementById('input-pat-write')?.value.trim();
+    const pat = document.getElementById('input-pat')?.value.trim();
     const errEl = document.getElementById('settings-error');
 
     if (!owner) {
@@ -143,7 +141,7 @@ function initSettings() {
     }
     errEl.classList.add('hidden');
 
-    saveConfig({ owner, projectNumber: parseInt(projectNumberStr, 10), patRead, patWrite });
+    saveConfig({ owner, projectNumber: parseInt(projectNumberStr, 10), pat });
     closeSettings();
     updateHeaderBadges();
     await loadProject();
@@ -153,35 +151,38 @@ function initSettings() {
     clearConfig();
     document.getElementById('input-owner').value = '';
     document.getElementById('input-project').value = '';
-    document.getElementById('input-pat-read').value = '';
-    document.getElementById('input-pat-write').value = '';
+    document.getElementById('input-pat').value = '';
     closeSettings();
     updateHeaderBadges();
     renderEmptyState();
   });
 
   // Toggle PAT visibility
-  // PAT visibility toggles (shared logic)
-  const initPatToggle = (btnId, inputId, iconId) => {
-    document.getElementById(btnId)?.addEventListener('click', () => {
-      const input = document.getElementById(inputId);
-      const icon  = document.getElementById(iconId);
-      if (!input) return;
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />`;
-      } else {
-        input.type = 'password';
-        icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
-      }
-    });
-  };
-  initPatToggle('btn-toggle-pat-read',  'input-pat-read',  'pat-eye-icon-read');
-  initPatToggle('btn-toggle-pat-write', 'input-pat-write', 'pat-eye-icon-write');
+  // PAT visibility toggle
+  document.getElementById('btn-toggle-pat')?.addEventListener('click', () => {
+    const input = document.getElementById('input-pat');
+    const icon  = document.getElementById('pat-eye-icon');
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />`;
+    } else {
+      input.type = 'password';
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
+    }
+  });
 
   // Escape key closes modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSettings();
+  });
+
+  // Mode toggle
+  document.getElementById('btn-mode-toggle')?.addEventListener('click', () => {
+    toggleAdminMode();
+    updateHeaderBadges();
+    // Re-render pipeline to show/hide write controls
+    if (state.items.length) renderProjectView();
   });
 }
 
@@ -196,15 +197,31 @@ function updateHeaderBadges() {
   const projectBadgeText = document.getElementById('project-badge-text');
   const refreshBtn = document.getElementById('btn-refresh');
 
-  if (hasWritePAT()) {
+  // Auth badge — show when PAT is set
+  if (hasPAT()) {
     authBadge?.classList.replace('hidden', 'flex');
-    if (authBadge) authBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-coral rounded-full"></span> Admin`;
-  } else if (hasPAT()) {
-    authBadge?.classList.replace('hidden', 'flex');
-    if (authBadge) authBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-muted rounded-full"></span> Read-only`;
+    if (authBadge) authBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-coral rounded-full"></span> PAT`;
   } else {
     authBadge?.classList.replace('flex', 'hidden');
     authBadge?.classList.add('hidden');
+  }
+
+  // Mode toggle button — only shown when PAT is set
+  const modeBtn = document.getElementById('btn-mode-toggle');
+  if (modeBtn) {
+    if (hasPAT()) {
+      modeBtn.classList.replace('hidden', 'flex');
+      if (isAdminMode()) {
+        modeBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Admin`;
+        modeBtn.style.cssText = 'background:rgba(228,105,98,0.15);border:1px solid rgba(228,105,98,0.4);color:#E46962;';
+      } else {
+        modeBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> View`;
+        modeBtn.style.cssText = 'background:rgba(78,99,94,0.15);border:1px solid rgba(78,99,94,0.35);color:#808C78;';
+      }
+    } else {
+      modeBtn.classList.replace('flex', 'hidden');
+      modeBtn.classList.add('hidden');
+    }
   }
 
   if (config.owner && config.projectNumber) {

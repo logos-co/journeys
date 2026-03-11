@@ -27,9 +27,12 @@ export function renderMarkdown(text) {
  */
 function extractDepsSection(body) {
   if (!body) return '';
-  // Match ## Dependencies (any h1-h3 level) up to the next heading or end of string
-  const m = body.match(/^#{1,3}\s+Dependencies[ \t]*\r?\n([\s\S]*?)(?=^#{1,3}\s|\s*$)/m);
-  return m ? m[1] : '';
+  const headingMatch = body.match(/^#{1,3}\s+Dependencies[ \t]*\r?\n/m);
+  if (!headingMatch) return '';
+  const startIdx = headingMatch.index + headingMatch[0].length;
+  const rest = body.slice(startIdx);
+  const nextHeading = rest.match(/^#{1,3}\s/m);
+  return nextHeading ? rest.slice(0, nextHeading.index) : rest;
 }
 
 /**

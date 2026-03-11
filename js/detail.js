@@ -40,21 +40,17 @@ export async function toggleDetail(itemId, item) {
 function renderDetailShell(item) {
   const issue = item.content;
   const canWrite = hasWritePAT();
-  const blockedLabels = extractAllBlockedLabels(issue.labels?.nodes || []);
 
   return `
     <div class="detail-panel" style="border-top:1px solid rgba(78,99,94,0.3);background:rgba(12,43,45,0.4);">
       <div class="max-w-5xl mx-auto p-6 space-y-6">
 
         <!-- Header -->
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 text-xs text-muted mb-1.5" style="font-family:Arial,Helvetica,sans-serif;">
-              <span>${issue.repository?.nameWithOwner || ''}</span>
-              <span>·</span><span>#${issue.number}</span>
-              <span>·</span>${statusBadge(issue.state)}
-            </div>
-            <h2 class="text-xl font-bold text-parchment leading-snug" style="font-family:'Times New Roman',Times,serif;">${escapeHtml(issue.title)}</h2>
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2 text-xs text-muted" style="font-family:Arial,Helvetica,sans-serif;">
+            <span>${issue.repository?.nameWithOwner || ''}</span>
+            <span>·</span><span>#${issue.number}</span>
+            <span>·</span>${statusBadge(issue.state)}
           </div>
           <a href="${issue.url}" target="_blank" rel="noopener"
              class="flex-none flex items-center gap-1.5 text-xs text-muted transition-colors px-2.5 py-1.5 rounded"
@@ -66,15 +62,6 @@ function renderDetailShell(item) {
             </svg>
             View on GitHub
           </a>
-        </div>
-
-        <!-- Blocked labels -->
-        <div class="flex items-start gap-3">
-          <span class="text-xs font-medium text-muted pt-1 w-24 flex-none" style="font-family:Arial,Helvetica,sans-serif;">Blocking team</span>
-          <div id="blocked-labels-${item.id}" class="flex flex-wrap gap-2">
-            ${renderBlockedLabels(blockedLabels, item, canWrite)}
-            ${canWrite ? renderAddLabelButton(item) : ''}
-          </div>
         </div>
 
         <!-- Assignees -->
@@ -275,51 +262,49 @@ async function loadDependencies(itemId, item, bodyOverride) {
     fetchedMap.set(`${d.owner}/${d.repo}#${d.number}`, results[i]);
   });
 
-  // Group by team (team is now explicit in dep)
-  const teamGroups = new Map();
+  // Build per-team status entries
+  const teamRows = [];
   for (const dep of deps) {
-    if (!teamGroups.has(dep.team)) teamGroups.set(dep.team, []);
     const fetched = dep.url ? fetchedMap.get(`${dep.owner}/${dep.repo}#${dep.number}`) : null;
-    teamGroups.get(dep.team).push({ dep, fetched });
+    let status, statusColor, issueRef = null;
+    if (!dep.url) {
+      status = 'not tracked';
+      statusColor = '#808C78';
+    } else if (fetched?.error) {
+      status = 'error';
+      statusColor = '#E46962';
+      issueRef = { url: dep.url, label: `${dep.owner}/${dep.repo}#${dep.number}` };
+    } else if (fetched?.issue?.state === 'open') {
+      status = 'pending';
+      statusColor = '#E46962';
+      issueRef = { url: fetched.issue.html_url, label: escapeHtml(fetched.issue.title) };
+    } else {
+      status = 'done';
+      statusColor = '#808C78';
+      issueRef = fetched?.issue ? { url: fetched.issue.html_url, label: escapeHtml(fetched.issue.title) } : null;
+    }
+    teamRows.push({ dep, status, statusColor, issueRef });
   }
 
-  // Sort: teams with pending first, then not-tracked, then done
-  const sorted = [...teamGroups.entries()].sort(([, a], [, b]) => {
-    const score = (entries) => {
-      if (entries.some(e => e.fetched?.error || e.fetched?.issue?.state === 'open')) return 2;
-      if (entries.some(e => !e.dep.url)) return 1;
-      return 0;
-    };
-    return score(b) - score(a);
-  });
+  // Sort: pending first, then not-tracked, then done
+  const statusOrder = { pending: 0, error: 0, 'not tracked': 1, done: 2 };
+  teamRows.sort((a, b) => (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1));
 
-  listEl.innerHTML = sorted.map(([team, entries]) => {
-    const pending    = entries.filter(e => e.fetched?.error || e.fetched?.issue?.state === 'open').length;
-    const done       = entries.filter(e => e.fetched && !e.fetched.error && e.fetched.issue?.state !== 'open').length;
-    const notTracked = entries.filter(e => !e.dep.url).length;
-
-    const parts = [];
-    if (pending)    parts.push(`${pending} pending`);
-    if (done)       parts.push(`${done} done`);
-    if (notTracked) parts.push(`${notTracked} not tracked`);
-
-    return `
-      <div class="space-y-1.5">
-        <div class="flex items-center gap-2 pt-1">
-          <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded"
-                style="background:${teamColor(team, 0.15)};color:${teamColor(team, 0.9)};border:1px solid ${teamColor(team, 0.3)};font-family:Arial,Helvetica,sans-serif;">
-            ${escapeHtml(team)}
-          </span>
-          <span class="text-xs text-muted" style="font-family:Arial,Helvetica,sans-serif;">${parts.join(' · ')}</span>
-        </div>
-        ${entries.map(({ dep, fetched }) => {
-          if (!dep.url) return renderDepTodo(dep);
-          if (fetched?.error) return renderDepError(dep, fetched.error);
-          return renderDepIssue(dep, fetched.issue);
-        }).join('')}
-      </div>
-    `;
-  }).join('<hr class="logos-divider my-3" />');
+  listEl.innerHTML = teamRows.map(({ dep, status, statusColor, issueRef }) => `
+    <div class="flex items-center gap-3 py-2 px-3 rounded"
+         style="background:rgba(14,38,24,0.35);border:1px solid rgba(78,99,94,0.2);">
+      <span class="text-xs font-semibold px-2 py-0.5 rounded flex-none"
+            style="background:${teamColor(dep.team, 0.15)};color:${teamColor(dep.team, 0.9)};border:1px solid ${teamColor(dep.team, 0.3)};font-family:Arial,Helvetica,sans-serif;">
+        ${escapeHtml(dep.team)}
+      </span>
+      <span class="flex-1 text-xs truncate" style="color:${statusColor};font-family:Arial,Helvetica,sans-serif;">
+        ${issueRef
+          ? `<a href="${issueRef.url}" target="_blank" rel="noopener" class="hover:underline">${issueRef.label}</a>`
+          : '—'}
+      </span>
+      <span class="text-xs font-medium flex-none" style="color:${statusColor};font-family:Arial,Helvetica,sans-serif;">${status}</span>
+    </div>
+  `).join('');
 }
 
 // ---------------------------------------------------------------------------

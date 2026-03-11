@@ -23,11 +23,13 @@ export function renderPipeline(container, items, projectTitle) {
         </div>
       </div>
 
-      <div class="hidden md:grid md:grid-cols-[1fr_minmax(5rem,auto)_8rem_9rem_6rem] gap-4 px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wider" style="font-family:Arial,Helvetica,sans-serif;border-bottom:1px solid rgba(78,99,94,0.3);">
+      <div class="hidden md:grid md:grid-cols-[1fr_8rem_9rem_minmax(5rem,auto)] gap-4 px-4 py-2 text-xs font-semibold uppercase tracking-wider" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;border-bottom:1px solid rgba(78,99,94,0.2);">
         <div>Journey</div>
+        <div>Type</div>
+        <div>Target Release</div>
         <div class="flex flex-col gap-0.5">
           <span>Deps</span>
-          <div class="flex items-center gap-2 font-normal normal-case tracking-normal" style="color:#808C78;">
+          <div class="flex items-center gap-2 font-normal normal-case tracking-normal">
             <span class="flex items-center gap-1">
               <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#E46962;"></span>not tracked
             </span>
@@ -39,9 +41,6 @@ export function renderPipeline(container, items, projectTitle) {
             </span>
           </div>
         </div>
-        <div>Type</div>
-        <div>Target Release</div>
-        <div class="text-right">Status</div>
       </div>
 
       <div id="pipeline-list" class="space-y-1.5">
@@ -102,25 +101,33 @@ function renderPipelineRow(item, index, canDrag) {
         data-repo="${escapeHtml(repo)}"
         data-issue="${issue.number}"
         draggable="${canDrag}"
-        class="pipeline-row grid grid-cols-[1fr_6rem] md:grid-cols-[1fr_minmax(5rem,auto)_8rem_9rem_6rem] gap-4 items-center px-4 py-3 rounded cursor-pointer transition-all select-none ${canDrag ? 'draggable-row' : ''}"
-        style="background:rgba(12,43,45,0.55);border:1px solid rgba(78,99,94,0.3);border-left:3px solid ${blockedTeam ? teamColor(blockedTeam, 0.7) : 'transparent'};"
-        onmouseover="this.style.background='rgba(78,99,94,0.18)'"
-        onmouseout="this.style.background='rgba(12,43,45,0.55)'"
+        class="pipeline-row grid grid-cols-[1fr_auto] md:grid-cols-[1fr_8rem_9rem_minmax(5rem,auto)] gap-4 items-center px-4 py-3 rounded cursor-pointer transition-all select-none ${canDrag ? 'draggable-row' : ''}"
+        style="background:rgba(255,255,255,0.75);border:1px solid rgba(78,99,94,0.2);border-left:3px solid ${blockedTeam ? teamColor(blockedTeam, 0.6) : 'transparent'};"
+        onmouseover="this.style.background='rgba(78,99,94,0.1)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.75)'"
       >
         <div class="min-w-0">
-          <div class="flex items-baseline gap-2.5">
+          <div class="flex items-baseline gap-2.5 flex-wrap">
             ${canDrag
               ? `<span class="drag-handle flex-none" title="Drag to reorder">⠿</span>`
               : `<span class="rank-number flex-none">${rankLabel}</span>`
             }
-            <span class="text-base font-semibold text-parchment leading-snug" style="font-family:'Times New Roman',Times,serif;">
+            <span class="text-base font-semibold leading-snug" style="font-family:'Times New Roman',Times,serif;color:#0E2618;">
               ${escapeHtml(issue.title)}
             </span>
+            ${docUrl ? `
+              <a href="${escapeHtml(docUrl)}" target="_blank" rel="noopener"
+                 onclick="event.stopPropagation()"
+                 title="Open documentation"
+                 class="flex-none text-xs px-1.5 py-0.5 rounded transition-colors self-center"
+                 style="border:1px solid rgba(106,174,123,0.45);color:#6AAE7B;font-family:Arial,Helvetica,sans-serif;"
+                 onmouseover="this.style.borderColor='rgba(106,174,123,0.8)';this.style.background='rgba(106,174,123,0.1)'"
+                 onmouseout="this.style.borderColor='rgba(106,174,123,0.45)';this.style.background=''">
+                Docs ↗
+              </a>
+            ` : ''}
           </div>
         </div>
-
-        <!-- Dependencies dots column (desktop) -->
-        <div id="pending-${item.id}" class="hidden md:flex items-center gap-1 flex-wrap"></div>
 
         <!-- Journey Type column (desktop) -->
         <div class="hidden md:flex items-center flex-wrap gap-1">
@@ -132,20 +139,11 @@ function renderPipelineRow(item, index, canDrag) {
           ${releaseHtml}
         </div>
 
-        <div class="flex items-center justify-end gap-2">
-          ${docUrl ? `
-            <a href="${escapeHtml(docUrl)}" target="_blank" rel="noopener"
-               onclick="event.stopPropagation()"
-               title="Open documentation"
-               class="flex-none text-xs px-1.5 py-0.5 rounded transition-colors"
-               style="border:1px solid rgba(78,99,94,0.4);color:#808C78;font-family:Arial,Helvetica,sans-serif;"
-               onmouseover="this.style.borderColor='rgba(228,105,98,0.5)';this.style.color='#E46962'"
-               onmouseout="this.style.borderColor='rgba(78,99,94,0.4)';this.style.color='#808C78'">
-              Docs ↗
-            </a>
-          ` : ''}
-          ${statusBadge(issue.state)}
-          <svg id="chevron-${item.id}" class="w-4 h-4 text-muted transition-all flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <!-- Dependencies dots column (desktop) -->
+        <div id="pending-${item.id}" class="hidden md:flex items-center gap-1 flex-wrap"></div>
+
+        <div class="flex items-center justify-end">
+          <svg id="chevron-${item.id}" class="w-4 h-4 transition-all flex-none" style="color:#808C78;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -229,7 +227,7 @@ function renderDepDots(teamCounts) {
 
     return `<span title="${escapeHtml(team)}: ${statusText}"
                   class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs"
-                  style="background:rgba(14,38,24,0.5);border:1px solid rgba(78,99,94,0.3);font-family:Arial,Helvetica,sans-serif;color:#DDDED8;white-space:nowrap;">
+                  style="background:rgba(255,255,255,0.7);border:1px solid rgba(78,99,94,0.25);font-family:Arial,Helvetica,sans-serif;color:#4E635E;white-space:nowrap;">
               <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;"></span>
               ${escapeHtml(team)}
             </span>`;

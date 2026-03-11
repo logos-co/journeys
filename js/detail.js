@@ -43,12 +43,12 @@ function renderDetailShell(item) {
   const docUrl = extractDocUrl(issue.body || '');
 
   return `
-    <div class="detail-panel" style="border-top:1px solid rgba(78,99,94,0.3);background:rgba(12,43,45,0.4);">
+    <div class="detail-panel" style="border-top:1px solid rgba(78,99,94,0.2);background:rgba(221,222,216,0.6);">
       <div class="max-w-5xl mx-auto p-6 space-y-6">
 
         <!-- Header -->
         <div class="flex items-center justify-between gap-4">
-          <div class="flex items-center gap-2 text-xs text-muted" style="font-family:Arial,Helvetica,sans-serif;">
+          <div class="flex items-center gap-2 text-xs" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">
             <span>${issue.repository?.nameWithOwner || ''}</span>
             <span>·</span><span>#${issue.number}</span>
             <span>·</span>${statusBadge(issue.state)}
@@ -84,8 +84,8 @@ function renderDetailShell(item) {
 
         <!-- Markdown body -->
         <div>
-          <h3 class="text-xs font-semibold text-muted uppercase tracking-wider mb-3" style="font-family:Arial,Helvetica,sans-serif;">Description</h3>
-          <div class="markdown-body rounded p-5 overflow-x-auto" style="background:rgba(14,38,24,0.6);border:1px solid rgba(78,99,94,0.3);">
+          <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">Description</h3>
+          <div class="markdown-body rounded p-5 overflow-x-auto" style="background:rgba(255,255,255,0.6);border:1px solid rgba(78,99,94,0.2);">
             ${renderMarkdown(issue.body)}
           </div>
         </div>
@@ -93,7 +93,7 @@ function renderDetailShell(item) {
         <!-- Dependencies -->
         <div>
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-xs font-semibold text-muted uppercase tracking-wider" style="font-family:Arial,Helvetica,sans-serif;">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">
               Dependencies
               <span id="dep-count-${item.id}" class="ml-2 font-normal normal-case"></span>
             </h3>
@@ -187,9 +187,8 @@ function renderAddDepForm(item) {
   const repoWithOwner = escapeHtml(item.content?.repository?.nameWithOwner || '');
   const issueNumber = item.content?.number || 0;
   return `
-    <div id="add-dep-form-${item.id}" style="display:none;" class="mb-3 p-4 rounded space-y-3"
-         style="background:rgba(14,38,24,0.6);border:1px solid rgba(78,99,94,0.3);">
-      <div style="background:rgba(14,38,24,0.6);border:1px solid rgba(78,99,94,0.3);border-radius:8px;padding:1rem;">
+    <div id="add-dep-form-${item.id}" style="display:none;" class="mb-3 p-4 rounded space-y-3">
+      <div style="background:rgba(255,255,255,0.7);border:1px solid rgba(78,99,94,0.25);border-radius:8px;padding:1rem;">
         <div class="space-y-3">
           <div>
             <label class="block text-xs font-medium text-parchment mb-1" style="font-family:Arial,Helvetica,sans-serif;">
@@ -233,7 +232,7 @@ function renderAssignees(issue) {
   if (!assignees.length) return '';
   return `
     <div class="flex items-center gap-3">
-      <span class="text-xs font-medium text-muted w-24 flex-none" style="font-family:Arial,Helvetica,sans-serif;">Assignees</span>
+      <span class="text-xs font-medium w-24 flex-none" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">Assignees</span>
       <div class="flex items-center gap-2">
         ${assignees.map(a => `
           <a href="https://github.com/${a.login}" target="_blank" rel="noopener"
@@ -261,7 +260,7 @@ async function loadDependencies(itemId, item, bodyOverride) {
   if (countEl) countEl.textContent = deps.length ? `(${deps.length})` : '';
 
   if (!deps.length) {
-    listEl.innerHTML = `<p class="text-sm text-muted italic" style="font-family:Arial,Helvetica,sans-serif;">No dependencies listed. ${hasWritePAT() ? 'Use "Add dependency" to track one.' : ''}</p>`;
+    listEl.innerHTML = `<p class="text-sm italic" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">No dependencies listed. ${hasWritePAT() ? 'Use "Add dependency" to track one.' : ''}</p>`;
     return;
   }
 
@@ -307,7 +306,7 @@ async function loadDependencies(itemId, item, bodyOverride) {
 
   listEl.innerHTML = teamRows.map(({ dep, status, statusColor, issueRef }) => `
     <div class="flex items-center gap-3 py-2 px-3 rounded"
-         style="background:rgba(14,38,24,0.35);border:1px solid rgba(78,99,94,0.2);">
+         style="background:rgba(255,255,255,0.6);border:1px solid rgba(78,99,94,0.2);">
       <span class="text-xs font-semibold px-2 py-0.5 rounded flex-none"
             style="background:${teamColor(dep.team, 0.15)};color:${teamColor(dep.team, 0.9)};border:1px solid ${teamColor(dep.team, 0.3)};font-family:Arial,Helvetica,sans-serif;">
         ${escapeHtml(dep.team)}

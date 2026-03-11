@@ -44,11 +44,11 @@ export function teamBgClass(teamName) {
 export function statusBadge(issueState) {
   const s = (issueState || '').toUpperCase();
   if (s === 'OPEN') {
-    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium" style="background:rgba(14,38,24,0.7);color:#E2E0C9;border:1px solid rgba(78,99,94,0.6);">
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium" style="background:rgba(228,105,98,0.12);color:#0E2618;border:1px solid rgba(228,105,98,0.4);font-family:Arial,Helvetica,sans-serif;">
       <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#E46962;"></span>open
     </span>`;
   }
-  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium" style="background:rgba(12,43,45,0.7);color:#808C78;border:1px solid rgba(78,99,94,0.4);">
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium" style="background:rgba(78,99,94,0.12);color:#4E635E;border:1px solid rgba(78,99,94,0.3);font-family:Arial,Helvetica,sans-serif;">
     <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#808C78;"></span>closed
   </span>`;
 }
@@ -197,18 +197,8 @@ function updateHeaderBadges() {
   const projectBadgeText = document.getElementById('project-badge-text');
   const refreshBtn = document.getElementById('btn-refresh');
 
-  // Auth badge — always visible, shows PAT Set / PAT Not Set
-  if (authBadge) {
-    authBadge.classList.remove('hidden');
-    authBadge.classList.add('flex');
-    if (hasPAT()) {
-      authBadge.textContent = 'PAT Set';
-      authBadge.style.color = '#E2E0C9';
-    } else {
-      authBadge.textContent = 'PAT Not Set';
-      authBadge.style.color = '#808C78';
-    }
-  }
+  // Auth badge — hidden, PAT status shown via mode toggle button only
+  authBadge?.classList.add('hidden');
 
   // Mode toggle button — only shown when PAT is set
   const modeBtn = document.getElementById('btn-mode-toggle');

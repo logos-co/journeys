@@ -23,7 +23,7 @@ export function renderPipeline(container, items, projectTitle) {
         </div>
       </div>
 
-      <div class="hidden md:grid md:grid-cols-[1fr_8rem_9rem_minmax(5rem,auto)] gap-4 px-4 py-2 text-xs font-semibold uppercase tracking-wider" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;border-bottom:1px solid rgba(78,99,94,0.2);">
+      <div class="hidden md:grid md:grid-cols-[1fr_8rem_9rem_minmax(5rem,auto)_2rem] gap-4 px-4 py-2 text-xs font-semibold uppercase tracking-wider" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;border-bottom:1px solid rgba(78,99,94,0.2);">
         <div>Journey</div>
         <div>Type</div>
         <div>Target Release</div>
@@ -41,6 +41,7 @@ export function renderPipeline(container, items, projectTitle) {
             </span>
           </div>
         </div>
+        <div></div>
       </div>
 
       <div id="pipeline-list" class="space-y-1.5">
@@ -103,7 +104,7 @@ function renderPipelineRow(item, index, canDrag) {
         data-repo="${escapeHtml(repo)}"
         data-issue="${issue.number}"
         draggable="${canDrag}"
-        class="pipeline-row grid grid-cols-[1fr_auto] md:grid-cols-[1fr_8rem_9rem_minmax(5rem,auto)] gap-4 items-center px-4 py-3 rounded cursor-pointer transition-all select-none ${canDrag ? 'draggable-row' : ''}"
+        class="pipeline-row grid grid-cols-[1fr_auto] md:grid-cols-[1fr_8rem_9rem_minmax(5rem,auto)_2rem] gap-4 items-center px-4 py-3 rounded cursor-pointer transition-all select-none ${canDrag ? 'draggable-row' : ''}"
         style="background:rgba(255,255,255,0.75);border:1px solid rgba(78,99,94,0.2);border-left:3px solid ${blockedTeam ? teamColor(blockedTeam, 0.6) : 'transparent'};"
         onmouseover="this.style.background='rgba(78,99,94,0.1)'"
         onmouseout="this.style.background='rgba(255,255,255,0.75)'"

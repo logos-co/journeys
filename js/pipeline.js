@@ -2,7 +2,7 @@
  * pipeline.js — Pipeline view rendering
  */
 
-import { extractBlockedTeam, extractDependencyIssues, extractDocUrl, hasDocsDependency } from './markdown.js';
+import { extractBlockedTeam, extractDependencyIssues, extractDocUrl } from './markdown.js';
 import { toggleDetail, expandAll, collapseAll, getOpenCount } from './detail.js';
 import { hasWritePAT, getReadPAT } from './config.js';
 import { teamColor, statusBadge } from './app.js';
@@ -127,7 +127,6 @@ function renderPipelineRow(item, index, canDrag) {
     : `<span class="text-xs italic" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">—</span>`;
 
   const docUrl = extractDocUrl(issue.body || '');
-  const docMissing = !docUrl && hasDocsDependency(issue.body || '');
 
   return `
     <div>
@@ -164,10 +163,9 @@ function renderPipelineRow(item, index, canDrag) {
                 Docs ↗
               </a>
             ` : ''}
-            ${docMissing ? `
-              <span class="flex-none self-center" title="Doc dependency exists but no documentation linked"
-                    style="color:#FA7B17;font-size:14px;line-height:1;cursor:help;">⚠</span>
-            ` : ''}
+            <span id="doc-warn-${item.id}" class="flex-none self-center hidden"
+                  title="Docs issue is closed but no documentation linked"
+                  style="color:#FA7B17;font-size:14px;line-height:1;cursor:help;">⚠</span>
           </div>
         </div>
 
@@ -253,6 +251,25 @@ async function loadAllPendingSummaries(items) {
 
     const el = document.getElementById(`pending-${item.id}`);
     if (el) el.innerHTML = renderDepDots(teamCounts);
+
+    // Show doc warning only when: docs dep has a tracked issue, that issue is closed, and no doc URL exists
+    const docUrl = extractDocUrl(item.content?.body || '');
+    if (!docUrl) {
+      let docsIssueClosed = false;
+      for (let i = 0; i < entry.urlDeps.length; i++) {
+        const dep = entry.urlDeps[i];
+        if (dep.team.toLowerCase() === 'docs') {
+          const result = results[entry.startIdx + i];
+          if (result?.issue?.state === 'closed') {
+            docsIssueClosed = true;
+          }
+        }
+      }
+      const warnEl = document.getElementById(`doc-warn-${item.id}`);
+      if (warnEl && docsIssueClosed) {
+        warnEl.classList.remove('hidden');
+      }
+    }
   }
 }
 

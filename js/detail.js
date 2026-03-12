@@ -568,7 +568,9 @@ export function registerLabelHandlers() {
 
       showToast('success', `Added dependency: ${team}`);
       window._cancelAddDep(itemId);
-      await loadDependencies(itemId, item || { content: { body: newBody } });
+      const itemOrFallback = item || { content: { body: newBody } };
+      await loadDependencies(itemId, itemOrFallback);
+      refreshRowDepBadges(itemId, itemOrFallback);
     } catch (err) {
       showToast('error', `Failed to add dependency: ${err.message}`);
     }
@@ -620,8 +622,57 @@ async function refreshBlockedLabels(itemId, owner, repo, issueNumber, pat) {
 }
 
 // ---------------------------------------------------------------------------
-// Util
+// Refresh row dep badges after a mutation (e.g. Add dependency)
 // ---------------------------------------------------------------------------
+
+async function refreshRowDepBadges(itemId, item) {
+  const body = item.content?.body || '';
+  const deps = extractDependencyIssues(body);
+  const pat = getReadPAT();
+
+  const urlDeps = deps.filter(d => d.url);
+  const todoDeps = deps.filter(d => !d.url);
+  const refs = urlDeps.map(d => ({ owner: d.owner, repo: d.repo, number: d.number }));
+  const results = refs.length ? await fetchIssuesBatch(refs, pat) : [];
+
+  const teamCounts = new Map();
+  const ensure = (team) => {
+    if (!teamCounts.has(team)) teamCounts.set(team, { notTracked: 0, pending: 0, done: 0, url: null });
+    return teamCounts.get(team);
+  };
+  for (const dep of todoDeps) ensure(dep.team).notTracked++;
+  for (let i = 0; i < urlDeps.length; i++) {
+    const dep = urlDeps[i];
+    const result = results[i];
+    const counts = ensure(dep.team);
+    if (!counts.url) counts.url = dep.url;
+    if (result?.error || result?.issue?.state === 'open') counts.pending++;
+    else counts.done++;
+  }
+
+  const el = document.getElementById(`pending-${itemId}`);
+  if (!el) return;
+
+  el.innerHTML = [...teamCounts.entries()].map(([team, { notTracked, pending, done, url }]) => {
+    let statusText;
+    if (pending > 0) statusText = 'pending';
+    else if (notTracked > 0) statusText = 'not tracked';
+    else statusText = 'done';
+
+    const color = statusText === 'pending' ? '#FA7B17' : statusText === 'not tracked' ? '#E46962' : '#6AAE7B';
+    const indicator = statusText === 'not tracked'
+      ? `<span style="color:#FA7B17;font-size:11px;line-height:1;flex-shrink:0;">⚠</span>`
+      : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;"></span>`;
+    const tag = url ? 'a' : 'span';
+    const linkAttrs = url ? `href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"` : '';
+    return `<${tag} ${linkAttrs} title="${escapeHtml(team)}: ${statusText}"
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs transition-colors"
+              style="background:rgba(255,255,255,0.7);border:1px solid rgba(78,99,94,0.25);font-family:Arial,Helvetica,sans-serif;color:#4E635E;white-space:nowrap;${url ? 'cursor:pointer;text-decoration:none;' : ''}"
+              ${url ? `onmouseover="this.style.background='rgba(78,99,94,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.7)'"` : ''}>
+          ${indicator} ${escapeHtml(team)}
+        </${tag}>`;
+  }).join('');
+}
 
 function escapeHtml(str) {
   if (!str) return '';

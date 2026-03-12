@@ -523,11 +523,11 @@ async function init() {
   updateHeaderBadges();
   registerLabelHandlers();
 
-  // Retry handler
-  window._retryLoad = loadProject;
-
   // Refresh button
   document.getElementById('btn-refresh')?.addEventListener('click', loadProject);
+
+  // Retry handler
+  window._retryLoad = loadProject;
 
   // Load on startup if already configured
   if (isConfigured()) {

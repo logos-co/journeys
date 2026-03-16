@@ -1,4 +1,4 @@
-# eco-prio
+# journeys
 
 Static SPA that displays a prioritized pipeline of Logos ecosystem journeys, sourced from GitHub Projects v2.
 

@@ -1,4 +1,4 @@
-# Architecture Decision Records — eco-prio
+# Architecture Decision Records — journeys
 
 ## ADR-001: Static SPA with no backend
 

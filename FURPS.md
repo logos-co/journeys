@@ -1,4 +1,4 @@
-# FURPS — eco-prio
+# FURPS — journeys
 
 ## Functionality
 

@@ -232,6 +232,8 @@ function updateHeaderBadges() {
   if (config.owner && config.projectNumber) {
     projectBadge?.classList.replace('hidden', 'flex');
     if (projectBadgeText) projectBadgeText.textContent = `${config.owner} #${config.projectNumber}`;
+    const ownerType = state.isOrg ? 'orgs' : 'users';
+    if (projectBadge) projectBadge.href = `https://github.com/${ownerType}/${config.owner}/projects/${config.projectNumber}`;
     refreshBtn?.classList.remove('hidden');
   } else {
     projectBadge?.classList.replace('flex', 'hidden');
@@ -458,7 +460,7 @@ export async function loadProject() {
   refreshIcon?.classList.add('animate-spin');
 
   try {
-    const { projectId, projectTitle, items } = await fetchProjectItems(
+    const { projectId, projectTitle, items, isOrg } = await fetchProjectItems(
       config.owner,
       config.projectNumber,
       getReadPAT()
@@ -467,6 +469,7 @@ export async function loadProject() {
     state.projectId = projectId;
     state.projectTitle = projectTitle;
     state.items = items;
+    state.isOrg = isOrg;
     state.loading = false;
 
     renderProjectView();

@@ -560,12 +560,15 @@ export function registerLabelHandlers() {
     if (!owner || !repo || !issueNumber) { showToast('error', 'Could not determine issue repository'); return; }
 
     try {
-      const currentIssue = await fetchIssue(owner, repo, issueNumber, pat);
-      const newBody = addDepToBody(currentIssue.body || '', team, url || null);
+      // Use locally cached body so rapid successive adds don't overwrite each other.
+      // The cache is updated after each successful mutation (below), so it always
+      // reflects the latest state even before GitHub propagates the change.
+      const item = itemRegistry.get(itemId);
+      const currentBody = item?.content?.body ?? (await fetchIssue(owner, repo, issueNumber, pat)).body ?? '';
+      const newBody = addDepToBody(currentBody, team, url || null);
       await updateIssueBody(owner, repo, issueNumber, newBody, pat);
 
       // Update cached body
-      const item = itemRegistry.get(itemId);
       if (item?.content) item.content.body = newBody;
 
       showToast('success', `Added dependency: ${team}`);

@@ -190,7 +190,7 @@ export async function fetchProjectItems(owner, number, pat = '') {
   // Filter to only Issue content nodes (skip drafts / PRs)
   const items = allItems.filter(node => node.content && node.content.title);
 
-  return { projectId, projectTitle, items };
+  return { projectId, projectTitle, items, isOrg: useOrg };
 }
 
 async function fetchProjectPage(owner, number, pat, cursor, useOrg) {

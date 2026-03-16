@@ -109,7 +109,7 @@ function renderPipelineRow(item, index, canDrag) {
   // Override journey-type label colours so user / developer / node operator are distinct
   const JOURNEY_COLORS = { 'user': 'D94F45', 'developer': '3B7CB8', 'node operator': 'C4912C' };
   // Override release label colours so v0.1 / v0.2 are visually distinct
-  const RELEASE_COLORS = { 'testnet v0.1': '4E635E', 'testnet v0.2': '3B7CB8' };
+  const RELEASE_COLORS = { 'testnet v0.1': '4E635E', 'testnet v0.2': '3B7CB8', 'testnet unscheduled': '808C78' };
 
   const labelPill = (l) => {
     const key = l.name.trim().toLowerCase();
@@ -150,7 +150,9 @@ function renderPipelineRow(item, index, canDrag) {
             }
             <span class="flex-1 min-w-0 text-base font-semibold leading-snug" style="font-family:'Times New Roman',Times,serif;color:#0E2618;">
               ${escapeHtml(issue.title)}
-              <span class="text-xs font-normal" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">#${issue.number}</span>
+              <a href="${issue.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()"
+                 class="text-xs font-normal transition-colors" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;text-decoration:none;"
+                 onmouseover="this.style.color='#E46962'" onmouseout="this.style.color='#808C78'">#${issue.number}</a>
             </span>
             ${docUrl ? `
               <a href="${escapeHtml(docUrl)}" target="_blank" rel="noopener"

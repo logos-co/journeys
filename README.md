@@ -1,4 +1,4 @@
-# Eco Dev Priorities
+# Logos Journeys
 
 Website to track priorities of journeys for Logos Eco Dev, on Logos R&D.
 

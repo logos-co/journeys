@@ -56,6 +56,10 @@ gh issue create --repo logos-co/ecosystem \
 - red team: TODO'
 ```
 
+Always include `red team` and `docs` dependencies. Other dependencies to be added as per user's request.
+Do ask if they don't ask for any other dependencies.
+They should also specific a target testnet and a type of journey. Request clarification if they don't.
+
 After creating, add the issue to the GitHub Project board for it to appear in the app.
 
 Journey type label colors: gui user=`D94F45`, developer=`3B7CB8`, node operator=`C4912C`.

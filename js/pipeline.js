@@ -6,15 +6,16 @@ import {
   extractBlockedTeam, extractDocumentation,
   extractRnD, extractDocPacket, extractRedTeam,
   computeRnDState, computeDocsState, computeRedTeamState, computeActionLabels,
-  newIssueBody,
+  newIssueBody, renderMarkdown,
 } from './markdown.js';
 import { toggleDetail, expandAll, collapseAll, getOpenCount } from './detail.js';
 import { hasWritePAT, getReadPAT, getWritePAT, getConfig } from './config.js';
 import { teamColor, statusBadge, showToast } from './app.js';
 import { fetchRefsBatch, createIssue, addItemToProject, createLabel } from './api.js';
 
-// Active state filter — persists until project reload
-let activeStateFilter = null; // null | 'action:rnd' | 'action:docs' | 'action:red-team'
+// Active filters — persist until project reload
+let activeTeamFilter  = null; // null | team slug | 'unassigned'
+let activeStateFilter = null; // null | 'action:rnd' | 'action:docs' | 'action:red-team' | 'mismatch'
 
 // Project context (set during renderPipeline, used for create)
 let _projectId = null;
@@ -32,7 +33,8 @@ export function renderPipeline(container, items, projectTitle, projectId) {
   _projectOwner = owner || null;
   _projectRepo  = repo || null;
 
-  // Reset filter on each full project render
+  // Reset filters on each full project render
+  activeTeamFilter  = null;
   activeStateFilter = null;
 
   const openItems   = items.filter(i => i.content?.state !== 'CLOSED');
@@ -54,6 +56,24 @@ export function renderPipeline(container, items, projectTitle, projectId) {
 
   container.innerHTML = `
     <div class="max-w-5xl mx-auto space-y-4">
+
+      <!-- Instructions panel -->
+      <div style="border:1px solid rgba(78,99,94,0.25);border-radius:8px;background:rgba(221,222,216,0.35);">
+        <button id="btn-instructions-toggle"
+                onclick="window._toggleInstructions()"
+                class="w-full flex items-center justify-between px-4 py-3 text-left"
+                style="font-family:Arial,Helvetica,sans-serif;">
+          <span class="text-xs font-semibold uppercase tracking-wider" style="color:#808C78;">Instructions</span>
+          <svg id="instructions-chevron" class="w-4 h-4 transition-transform" style="color:#808C78;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div id="instructions-content" class="hidden px-6 pb-6 markdown-body overflow-x-auto"
+             style="border-top:1px solid rgba(78,99,94,0.15);padding-top:1.25rem;">
+          <p class="text-xs" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">Loading…</p>
+        </div>
+      </div>
+
       <div class="flex items-center justify-between mb-2">
         <div>
           <h1 class="text-2xl font-bold text-forest" style="font-family:'Times New Roman',Times,serif;">${escapeHtml(projectTitle || 'Priority Pipeline')}</h1>
@@ -87,7 +107,7 @@ export function renderPipeline(container, items, projectTitle, projectId) {
         </div>
       </div>
 
-      ${renderFilterBar()}
+      ${renderFilterBar(openItems)}
 
       <div id="pipeline-list" class="space-y-1.5">
         ${columnHeader}
@@ -126,80 +146,195 @@ export function renderPipeline(container, items, projectTitle, projectId) {
   attachFilterHandlers(allItems);
   attachNewJourneyHandler(projectId);
   loadAllStakeholderBadges(allItems);
+  loadInstructions();
 }
+
+async function loadInstructions() {
+  const content = document.getElementById('instructions-content');
+  if (!content) return;
+  try {
+    const res = await fetch('./README.md');
+    if (!res.ok) { content.innerHTML = ''; return; }
+    const text = await res.text();
+    content.innerHTML = renderMarkdown(text);
+
+    // Transform mermaid fenced code blocks into mermaid divs
+    content.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+      const div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = code.textContent;
+      code.parentElement.replaceWith(div);
+    });
+
+    // Load and render mermaid if any diagrams are present
+    if (content.querySelector('.mermaid')) {
+      if (!window.mermaid) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      window.mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+      await window.mermaid.run({ nodes: content.querySelectorAll('.mermaid') });
+    }
+  } catch {
+    content.innerHTML = '';
+  }
+}
+
+window._toggleInstructions = () => {
+  const content  = document.getElementById('instructions-content');
+  const chevron  = document.getElementById('instructions-chevron');
+  if (!content) return;
+  const isHidden = content.classList.toggle('hidden');
+  if (chevron) chevron.style.transform = isHidden ? '' : 'rotate(180deg)';
+};
 
 // ---------------------------------------------------------------------------
 // Filter bar (action-required pills)
 // ---------------------------------------------------------------------------
 
-function renderFilterBar() {
-  const filters = [
-    { key: 'action:rnd',       label: 'needs R&D',      color: '#3B7CB8' },
-    { key: 'action:docs',      label: 'needs docs',     color: '#6AAE7B' },
-    { key: 'action:red-team',  label: 'needs red team', color: '#E46962' },
-    { key: 'mismatch',         label: '⚠ out of sync',  color: '#FA7B17' },
-  ];
-  const pills = filters.map(f => `
-    <button class="filter-action-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
-            data-action="${escapeHtml(f.key)}"
+function renderFilterBar(openItems = []) {
+  // Collect distinct R&D team slugs from open items
+  const teamSet = new Set();
+  let hasUnassigned = false;
+  for (const item of openItems) {
+    const rnd = extractRnD(item.content?.body || '');
+    if (rnd.team) teamSet.add(rnd.team);
+    else hasUnassigned = true;
+  }
+
+  const pill = (cls, dataAttr, label) => `
+    <button class="${cls} inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+            ${dataAttr}
             style="border:1px solid rgba(78,99,94,0.3);background:transparent;color:#808C78;font-family:Arial,Helvetica,sans-serif;cursor:pointer;">
-      ${escapeHtml(f.label)}
-    </button>`).join('');
-  return `
+      ${escapeHtml(label)}
+    </button>`;
+
+  const teamRow = (teamSet.size > 0 || hasUnassigned) ? `
+    <div id="team-filter-bar" class="flex items-center gap-2 flex-wrap">
+      <span class="text-xs flex-none" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">Team:</span>
+      ${[...teamSet].sort().map(t => pill('filter-team-pill', `data-team="${escapeHtml(t)}"`, t)).join('')}
+      ${hasUnassigned ? pill('filter-team-pill', 'data-team="unassigned"', 'unassigned') : ''}
+    </div>` : '';
+
+  const actionFilters = [
+    { key: 'action:rnd',      label: 'needs R&D'      },
+    { key: 'action:docs',     label: 'needs docs'     },
+    { key: 'action:red-team', label: 'needs red team' },
+    { key: 'mismatch',        label: '⚠ out of sync'  },
+  ];
+  const actionRow = `
     <div id="action-filter-bar" class="flex items-center gap-2 flex-wrap">
-      <span class="text-xs flex-none" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">Filter:</span>
-      ${pills}
+      <span class="text-xs flex-none" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">Action:</span>
+      ${actionFilters.map(f => pill('filter-action-pill', `data-action="${escapeHtml(f.key)}"`, f.label)).join('')}
     </div>`;
+
+  return `<div id="filter-bar" class="space-y-1.5">${teamRow}${actionRow}</div>`;
 }
 
 function applyFilter(allItems) {
-  const noMatch = document.getElementById('no-filter-match');
-  if (!activeStateFilter) {
+  const noMatch   = document.getElementById('no-filter-match');
+  const anyFilter = activeTeamFilter || activeStateFilter;
+
+  // Toggle drag: disable when any filter active
+  document.querySelectorAll('#pipeline-list .pipeline-row').forEach(el => {
+    if (anyFilter) {
+      if (el.getAttribute('draggable') === 'true') {
+        el.setAttribute('draggable', 'false');
+        el.dataset.dragDisabled = 'true';
+        el.classList.remove('draggable-row');
+      }
+    } else if (el.dataset.dragDisabled) {
+      el.setAttribute('draggable', 'true');
+      el.classList.add('draggable-row');
+      delete el.dataset.dragDisabled;
+    }
+  });
+
+  if (!anyFilter) {
     for (const item of allItems) {
       document.getElementById(`filter-item-${item.id}`)?.classList.remove('hidden');
     }
     if (noMatch) noMatch.classList.add('hidden');
     return;
   }
+
   let visible = 0;
   for (const item of allItems) {
     const wrapper = document.getElementById(`filter-item-${item.id}`);
     if (!wrapper) continue;
-    let matches;
-    if (activeStateFilter === 'mismatch') {
-      matches = wrapper.dataset.mismatch === 'true';
-    } else {
-      const labels = JSON.parse(wrapper.dataset.actionLabels || '[]');
-      matches = labels.includes(activeStateFilter);
+
+    let matchesTeam = true;
+    if (activeTeamFilter) {
+      const slug = wrapper.dataset.rndTeam || '';
+      matchesTeam = activeTeamFilter === 'unassigned' ? !slug : slug === activeTeamFilter;
     }
+
+    let matchesAction = true;
+    if (activeStateFilter) {
+      if (activeStateFilter === 'mismatch') {
+        matchesAction = wrapper.dataset.mismatch === 'true';
+      } else {
+        const labels = JSON.parse(wrapper.dataset.actionLabels || '[]');
+        matchesAction = labels.includes(activeStateFilter);
+      }
+    }
+
+    const matches = matchesTeam && matchesAction;
     wrapper.classList.toggle('hidden', !matches);
     if (matches) visible++;
   }
   if (noMatch) noMatch.classList.toggle('hidden', visible > 0);
 }
 
+const ACTION_PILL_COLORS = {
+  'action:rnd': '#3B7CB8', 'action:docs': '#6AAE7B', 'action:red-team': '#E46962', 'mismatch': '#FA7B17',
+};
+
+function pillReset(btn) {
+  btn.style.background   = 'transparent';
+  btn.style.color        = '#808C78';
+  btn.style.borderColor  = 'rgba(78,99,94,0.3)';
+}
+
+function pillActivate(btn, color) {
+  btn.style.background  = color + '22';
+  btn.style.color       = color;
+  btn.style.borderColor = color + '88';
+}
+
 function attachFilterHandlers(allItems) {
+  // Action pills
   document.querySelectorAll('.filter-action-pill').forEach(btn => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.action;
       if (activeStateFilter === key) {
         activeStateFilter = null;
-        btn.style.background = 'transparent';
-        btn.style.color = '#808C78';
-        btn.style.borderColor = 'rgba(78,99,94,0.3)';
+        pillReset(btn);
       } else {
-        // Deactivate all
-        document.querySelectorAll('.filter-action-pill').forEach(b => {
-          b.style.background = 'transparent';
-          b.style.color = '#808C78';
-          b.style.borderColor = 'rgba(78,99,94,0.3)';
-        });
+        document.querySelectorAll('.filter-action-pill').forEach(pillReset);
         activeStateFilter = key;
-        const COLORS = { 'action:rnd': '#3B7CB8', 'action:docs': '#6AAE7B', 'action:red-team': '#E46962', 'mismatch': '#FA7B17' };
-        const c = COLORS[key] || '#808C78';
-        btn.style.background = c + '22';
-        btn.style.color = c;
-        btn.style.borderColor = c + '88';
+        pillActivate(btn, ACTION_PILL_COLORS[key] || '#808C78');
+      }
+      applyFilter(allItems);
+    });
+  });
+
+  // Team pills
+  document.querySelectorAll('.filter-team-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const team = btn.dataset.team;
+      if (activeTeamFilter === team) {
+        activeTeamFilter = null;
+        pillReset(btn);
+      } else {
+        document.querySelectorAll('.filter-team-pill').forEach(pillReset);
+        activeTeamFilter = team;
+        pillActivate(btn, '#4E635E');
       }
       applyFilter(allItems);
     });
@@ -220,6 +355,8 @@ function renderPipelineRow(item, index, canDrag) {
   const rankLabel   = String(index + 1).padStart(2, '0');
 
   const actionLabels = labels.filter(l => l.name.startsWith('action:')).map(l => l.name);
+  const rnd          = extractRnD(issue.body || '');
+  const rndTeamSlug  = rnd.team || '';
 
   const typeLabels    = labels.filter(l => /^(gui user|developer|node operator)$/i.test(l.name.trim()));
   const releaseLabels = labels.filter(l => /^testnet\b/i.test(l.name.trim()));
@@ -246,7 +383,8 @@ function renderPipelineRow(item, index, canDrag) {
 
   return `
     <div id="filter-item-${item.id}"
-         data-action-labels="${escapeHtml(JSON.stringify(actionLabels))}">
+         data-action-labels="${escapeHtml(JSON.stringify(actionLabels))}"
+         data-rnd-team="${escapeHtml(rndTeamSlug)}">
       <div
         id="row-${item.id}"
         data-item-id="${item.id}"

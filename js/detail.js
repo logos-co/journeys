@@ -184,7 +184,7 @@ const REDTEAM_STATE_LABELS = {
   'in-progress': 'In Progress',
   'done':        'Done',
 };
-const RND_TEAMS = ['anon-comms', 'messaging', 'core', 'storage', 'blockchain', 'lez', 'devkit'];
+const RND_TEAMS = ['anon-comms', 'messaging', 'core', 'storage', 'blockchain', 'zones', 'devkit'];
 
 function stateBadgeHtml(label, color) {
   return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"

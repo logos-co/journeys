@@ -585,7 +585,7 @@ async function loadAllStakeholderBadges(items) {
 // New Journey modal
 // ---------------------------------------------------------------------------
 
-const RND_TEAMS   = ['anon-comms', 'messaging', 'core', 'storage', 'blockchain', 'lez', 'devkit'];
+const RND_TEAMS   = ['anon-comms', 'messaging', 'core', 'storage', 'blockchain', 'zones', 'devkit'];
 const JOURNEY_TYPES = [
   { name: 'developer',     label: 'Developer',      color: '3B7CB8' },
   { name: 'gui user',      label: 'GUI User',        color: 'D94F45' },

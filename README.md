@@ -38,7 +38,7 @@ flowchart TD
     subgraph DOCS["Docs"]
         direction LR
         d1[waiting] --> d2[in-progress] --> d3[ready-for-review]
-        d4[approved & merged]
+        d4["approved & merged"]
     end
 
     subgraph RT["Red Team"]
@@ -47,7 +47,7 @@ flowchart TD
     end
 
     d3 -->|"+ action:red-team"| t1
-    d3 -->|"+ action:rnd"| sme[R&D SME review]
+    d3 -->|"+ action:rnd"| sme["R&D SME review"]
     t3 -->|"- action:red-team"| d4
     sme -->|"- action:rnd"| d4
     d4 -->|"- action:docs"| fin([journey complete])

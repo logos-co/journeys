@@ -5,7 +5,7 @@
 export const REPO_TEAMS = {
   'logos-co/ecosystem':                    'dogfooding',
   'logos-co/logos-docs':                   'docs',
-  'logos-blockchain/logos-execution-zone': 'lez',
+  'logos-blockchain/logos-execution-zone': 'zones',
 };
 
 /**

@@ -183,9 +183,15 @@ async function loadInstructions() {
           document.head.appendChild(s);
         });
       }
-      window.mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
-      await window.mermaid.run({ nodes: mermaidNodes });
-    } catch { /* mermaid unavailable — leave code blocks as text */ }
+      window.mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+      for (let i = 0; i < mermaidNodes.length; i++) {
+        const node = mermaidNodes[i];
+        const text = node.textContent.trim();
+        console.log('[mermaid] input text:', text);
+        const { svg } = await window.mermaid.render('mermaid-diagram-' + i, text);
+        node.innerHTML = svg;
+      }
+    } catch (e) { console.warn('[mermaid] render failed:', e); }
   }
 }
 

@@ -26,31 +26,29 @@ Each journey moves through three stakeholder stages. R&D and Docs run sequential
 
 ```mermaid
 flowchart TD
-    start([journey created]) -->|"+ action:rnd"| r1
+    start[journey created] -->|"+ action:rnd"| r1
 
-    subgraph RND["R&D"]
-        direction LR
-        r1[to-be-confirmed] --> r2[confirmed] --> r3[in-progress] --> r4[doc-packet-delivered]
+    subgraph RND[R and D]
+        r1["to-be-confirmed"] --> r2[confirmed] --> r3["in-progress"] --> r4["doc-packet-delivered"]
     end
 
-    r4 -->|"- action:rnd  + action:docs"| d1
+    r4 -->|"- action:rnd + action:docs"| d1
 
-    subgraph DOCS["Docs"]
-        direction LR
-        d1[waiting] --> d2[in-progress] --> d3[ready-for-review]
-        d4["approved & merged"]
+    subgraph DOCS[Docs]
+        d1[waiting] --> d2["in-progress"] --> d3["ready-for-review"]
     end
 
-    subgraph RT["Red Team"]
-        direction LR
-        t1[waiting] --> t2[in-progress] --> t3[done]
+    d4[approved and merged]
+
+    subgraph RT[Red Team]
+        t1[waiting] --> t2["in-progress"] --> t3[done]
     end
 
     d3 -->|"+ action:red-team"| t1
-    d3 -->|"+ action:rnd"| sme["R&D SME review"]
+    d3 -->|"+ action:rnd"| sme[SME review]
     t3 -->|"- action:red-team"| d4
     sme -->|"- action:rnd"| d4
-    d4 -->|"- action:docs"| fin([journey complete])
+    d4 -->|"- action:docs"| fin[journey complete]
 ```
 
 1. **R&D** fills in their team, a roadmap milestone link, and an estimated date. Once the feature implementation is complete, they [open an issue using the doc packet template](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml), fill it in (including appointing a Subject-Matter Expert (SME) from their team), then paste the issue URL into the `- link:` field in the `## Doc Packet` section. This signals hand-off to Docs.

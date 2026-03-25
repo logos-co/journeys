@@ -187,11 +187,10 @@ async function loadInstructions() {
       for (let i = 0; i < mermaidNodes.length; i++) {
         const node = mermaidNodes[i];
         const text = node.textContent.trim();
-        console.log('[mermaid] input text:', text);
         const { svg } = await window.mermaid.render('mermaid-diagram-' + i, text);
         node.innerHTML = svg;
       }
-    } catch (e) { console.warn('[mermaid] render failed:', e); }
+    } catch { /* mermaid unavailable — leave code blocks as text */ }
   }
 }
 

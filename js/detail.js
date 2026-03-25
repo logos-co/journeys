@@ -3,14 +3,14 @@
  */
 
 import {
-  fetchIssuesBatch, addLabels, removeLabel, fetchIssue,
+  addLabels, removeLabel, fetchIssue,
   updateIssueBody, createLabel, fetchRef, syncActionLabels,
 } from './api.js';
 import {
   renderMarkdown, extractAllBlockedLabels, extractDescription,
   extractRnD, extractDocPacket, extractDocumentation, extractRedTeam,
   computeRnDState, computeDocsState, computeRedTeamState, computeActionLabels,
-  setRnDField, setDocLink, setRedTeamTracking,
+  setRnDField, setDocPacketLink, setDocLink, setRedTeamTracking,
 } from './markdown.js';
 import { getReadPAT, getWritePAT, hasWritePAT } from './config.js';
 import { teamColor, showToast } from './app.js';
@@ -416,24 +416,47 @@ function renderRnDSection(itemId, rnd, rndState, repoWithOwner, issueNumber, can
 function renderDocPacketSection(itemId, docPacketContent, rndState, canWrite, issueUrl) {
   const isDelivered = !!docPacketContent;
 
-  let bodyHtml;
+  let linkHtml;
   if (isDelivered) {
-    bodyHtml = `<div class="markdown-body text-sm overflow-x-auto" style="max-height:20rem;overflow-y:auto;">
-      ${renderMarkdown(docPacketContent)}
-    </div>`;
+    const title = docPacketContent.replace(/^https?:\/\//, '');
+    linkHtml = `<a href="${escapeHtml(docPacketContent)}" target="_blank" rel="noopener"
+       class="text-xs truncate hover:underline" style="color:#3B7CB8;font-family:Arial,Helvetica,sans-serif;"
+       onclick="event.stopPropagation()">${escapeHtml(title)}</a>`;
   } else {
-    bodyHtml = `<p class="text-xs italic" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">
-      Not yet delivered. R&D team should fill this section in the issue body using the
-      <a href="https://github.com/logos-co/logos-docs/blob/main/docs/_shared/templates/doc-packet-testnet-v01.md"
-         target="_blank" rel="noopener" class="underline" style="color:#3B7CB8;">doc packet template</a>.
-    </p>`;
+    linkHtml = `<span class="text-xs italic" style="color:#808C78;font-family:Arial,Helvetica,sans-serif;">
+      No link yet. Open an issue using the
+      <a href="https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml"
+         target="_blank" rel="noopener" class="underline not-italic" style="color:#3B7CB8;">doc packet template</a>,
+      fill it in, then paste the URL below.
+    </span>`;
+  }
+
+  let editHtml = '';
+  if (canWrite) {
+    editHtml = `<span class="flex items-center gap-1 mt-2">
+      <input id="docpacket-link-${itemId}" type="text"
+             value="${escapeHtml(docPacketContent || '')}"
+             placeholder="https://github.com/logos-co/logos-docs/issues/..."
+             data-original="${escapeHtml(docPacketContent || '')}"
+             class="logos-input text-xs flex-1 min-w-0 py-0.5"
+             onfocus="this.style.borderColor='#E46962'"
+             onblur="this.style.borderColor=''" />
+      <button id="docpacket-link-save-${itemId}" class="hidden text-xs px-1.5 py-0.5 rounded transition-colors flex-none"
+              style="background:#E46962;color:#fff;font-family:Arial,Helvetica,sans-serif;"
+              onmouseover="this.style.background='#FA7B17'" onmouseout="this.style.background='#E46962'">✓</button>
+    </span>`;
   }
 
   const stateHtml = isDelivered
     ? stateBadgeHtml('Delivered', '#6AAE7B')
     : stateBadgeHtml('Waiting for R&D', '#808C78');
 
-  return sectionCard('Doc Packet', stateHtml, bodyHtml);
+  const body = `<div class="space-y-1">
+    ${fieldRow('Link', linkHtml)}
+    ${editHtml}
+  </div>`;
+
+  return sectionCard('Doc Packet', stateHtml, body);
 }
 
 function renderDocumentationSection(itemId, docsLink, docsRef, docsState, repoWithOwner, issueNumber, canWrite) {
@@ -558,6 +581,26 @@ function attachWorkflowHandlers(itemId, repoWithOwner, issueNumber) {
     });
     dateSave.addEventListener('click', () =>
       window._saveRnDField(itemId, repoWithOwner, issueNumber, 'date', dateInput.value.trim())
+    );
+  }
+
+  // Doc packet link input
+  const dpInput = document.getElementById(`docpacket-link-${itemId}`);
+  const dpSave  = document.getElementById(`docpacket-link-save-${itemId}`);
+  if (dpInput && dpSave) {
+    const showSave = () => {
+      if (dpInput.value.trim() !== dpInput.dataset.original)
+        dpSave.classList.remove('hidden');
+      else
+        dpSave.classList.add('hidden');
+    };
+    dpInput.addEventListener('input', showSave);
+    dpInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); dpSave.click(); }
+      if (e.key === 'Escape') { dpInput.value = dpInput.dataset.original; dpSave.classList.add('hidden'); dpInput.blur(); }
+    });
+    dpSave.addEventListener('click', () =>
+      window._saveDocPacketLink(itemId, repoWithOwner, issueNumber, dpInput.value.trim())
     );
   }
 
@@ -776,6 +819,31 @@ export function registerLabelHandlers() {
   };
 
   // -- Documentation link save --
+  window._saveDocPacketLink = async (itemId, repoWithOwner, issueNumber, value) => {
+    if (value && !/^https?:\/\/\S+$/.test(value)) {
+      showToast('error', 'Invalid URL');
+      return;
+    }
+
+    const pat = getWritePAT();
+    if (!pat) { showToast('error', 'Write token required'); return; }
+
+    const [owner, repo] = (repoWithOwner || '').split('/');
+    if (!owner || !repo || !issueNumber) { showToast('error', 'Could not determine issue'); return; }
+
+    try {
+      const item = itemRegistry.get(itemId);
+      const currentBody = item?.content?.body ?? (await fetchIssue(owner, repo, issueNumber, pat)).body ?? '';
+      const newBody = setDocPacketLink(currentBody, value || null);
+      await updateIssueBody(owner, repo, issueNumber, newBody, pat);
+      if (item?.content) item.content.body = newBody;
+      showToast('success', 'Saved doc packet link');
+      await loadWorkflowSections(itemId, item || { content: { body: newBody, repository: { nameWithOwner: repoWithOwner }, number: issueNumber, labels: { nodes: [] } } }, newBody);
+    } catch (err) {
+      showToast('error', `Failed to save: ${err.message}`);
+    }
+  };
+
   window._saveDocLink = async (itemId, repoWithOwner, issueNumber, value) => {
     if (value && !/^https?:\/\/\S+$/.test(value)) {
       showToast('error', 'Invalid URL');

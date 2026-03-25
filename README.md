@@ -6,21 +6,52 @@ Pre-configured for [logos-co / project 12](https://github.com/orgs/logos-co/proj
 
 ## How a journey progresses
 
-Each journey moves through three sequential stakeholder stages:
+Each journey moves through three stakeholder stages. R&D and Docs run sequentially; Docs and Red Team overlap during the review phase:
 
+| Stage        | States                                                                   |
+|--------------|--------------------------------------------------------------------------|
+| **R&D**      | `to-be-confirmed` → `confirmed` → `in-progress` → `doc-packet-delivered` |
+| **Docs**     | `waiting` → `in-progress` → `ready-for-review` → `merged`                |
+| **Red Team** | `waiting` → `in-progress` → `done`                                       |
+
+```mermaid
+flowchart TD
+    start([journey created]) -->|"+ action:rnd"| r1
+
+    subgraph RND["R&D"]
+        direction LR
+        r1[to-be-confirmed] --> r2[confirmed] --> r3[in-progress] --> r4[doc-packet-delivered]
+    end
+
+    r4 -->|"- action:rnd  + action:docs"| d1
+
+    subgraph DOCS["Docs"]
+        direction LR
+        d1[waiting] --> d2[in-progress] --> d3[ready-for-review]
+        d4[approved & merged]
+    end
+
+    subgraph RT["Red Team"]
+        direction LR
+        t1[waiting] --> t2[in-progress] --> t3[done]
+    end
+
+    d3 -->|"+ action:red-team"| t1
+    d3 -->|"+ action:rnd"| sme[R&D SME review]
+    t3 -->|"- action:red-team"| d4
+    sme -->|"- action:rnd"| d4
+    d4 -->|"- action:docs"| fin([journey complete])
 ```
-R&D  ──────────────────────────────────────────►  Docs  ──────────────►  Red Team
-to-be-confirmed → confirmed → in-progress           waiting               waiting
-                                    │               in-progress           in-progress
-                                    ▼               ready-for-review ──►  done
-                             doc-packet-delivered   merged
-```
 
-1. **R&D** fills in their team, a roadmap milestone link, and an estimated date. Once the software is delivered they paste the [doc packet template](https://github.com/logos-co/logos-docs/blob/main/docs/_shared/templates/doc-packet-testnet-v01.md) into the `## Doc Packet` section of the issue — this signals hand-off to Docs.
-2. **Docs** opens a tracking issue in logos-docs, writes the content, raises a PR, and merges it.
-3. **Red Team** dogfoods the journey and closes their tracking issue when done.
+1. **R&D** fills in their team, a roadmap milestone link, and an estimated date. Once the feature implementation is complete, they [open an issue using the doc packet template](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml), fill it in (including appointing a Subject-Matter Expert (SME) from their team), then paste the issue URL into the `- link:` field in the `## Doc Packet` section. This signals hand-off to Docs.
+2. **Docs** opens two items in the logos-docs board:
+   - A tracking issue assigned to the R&D SME, back-linked to the journey.
+   - A PR assigned to the writer and linked to the issue. This is where the writing happens. The document progresses through `stub → unverified draft → verified by SME → verified by Red Team` on this PR, with the R&D SME and Red Team reviewing directly on it.
 
-The app tracks these states automatically by reading the issue body and checking GitHub issue/PR states. The `action:rnd`, `action:docs`, and `action:red-team` labels are kept in sync automatically — they tell each team at a glance when it's their turn. A ⚠ badge on a row means the labels are stale and will be corrected the next time the issue is opened in write mode.
+   When the PR is approved, Docs merges it, which automatically closes the linked issue.
+3. **Red Team** gets the `action:red-team` label as soon as the doc PR is ready for review. They dogfood the journey and review the docs PR at the same time; once dogfooding is done, so is the PR review. They close their tracking issue when done.
+
+The app tracks these states automatically by reading the issue body and checking GitHub issue/PR states. The `action:rnd`, `action:docs`, and `action:red-team` labels are kept in sync automatically; they tell each team at a glance when it's their turn. A ⚠ badge on a row means the labels are stale and will be corrected the next time the issue is opened in write mode.
 
 ## Run locally
 
@@ -30,11 +61,11 @@ npx serve .
 
 Then open http://localhost:3000.
 
-> The app uses ES modules and must be served over HTTP — opening `index.html` directly as a `file://` URL will not work.
+> The app uses ES modules and must be served over HTTP; opening `index.html` directly as a `file://` URL will not work.
 
 ## Usage
 
-- **View**: opens read-only against the default project (`logos-co` / `#12`) — no auth needed.
+- **View**: opens read-only against the default project (`logos-co` / `#12`), no auth needed.
 - **Settings** (gear icon): change owner, project number, or add tokens.
 - **Read-only token**: `read:project` scope. Authenticated reads, higher rate limit.
 - **Read+write token**: `public_repo` + `read:project` scopes. Enables drag-to-reorder, inline editing, and label auto-sync.

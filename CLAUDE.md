@@ -35,7 +35,7 @@ Journeys are GitHub issues in the connected project board. Each issue has:
 - **Labels** for action required: `action:rnd`, `action:docs`, `action:red-team` — auto-managed by the app
 - **Issue body** with structured sections (3-stakeholder workflow):
   - `## R&D` — fields: `- team: <name>`, `- milestone: <url>`, `- date: <DDMmmYY>`
-  - `## Doc Packet` — R&D team fills this with the [doc packet template](https://github.com/logos-co/logos-docs/blob/main/docs/_shared/templates/doc-packet-testnet-v01.md) when ready; presence of content (>150 chars) = delivered. Placeholder text `_Fill in using the [doc packet template](...)._` is pre-filled by the migration script and does not count as delivered.
+  - `## Doc Packet` — field: `- link: <url>` pointing to a logos-docs issue created from the [doc packet template](https://github.com/logos-co/logos-docs/issues/new?template=doc-packet.yml); presence of the link = delivered.
   - `## Documentation` — field: `- link: <url>` pointing to logos-docs issue → PR → live doc
   - `## Red Team` — field: `- tracking: <url>` pointing to red team tracking issue
 
@@ -75,6 +75,7 @@ gh issue create --repo logos-co/journeys.logos.co \
 - date:
 
 ## Doc Packet
+- link:
 
 ## Documentation
 - link:

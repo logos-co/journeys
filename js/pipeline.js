@@ -33,9 +33,10 @@ export function renderPipeline(container, items, projectTitle, projectId) {
   _projectOwner = owner || null;
   _projectRepo  = repo || null;
 
-  // Reset filters on each full project render
-  activeTeamFilter  = null;
-  activeStateFilter = null;
+  // Restore filters from URL params (or reset if absent)
+  const _urlParams  = new URLSearchParams(window.location.search);
+  activeTeamFilter  = _urlParams.get('team')   || null;
+  activeStateFilter = _urlParams.get('action') || null;
 
   const openItems   = items.filter(i => i.content?.state !== 'CLOSED');
   const closedItems = items
@@ -144,6 +145,16 @@ export function renderPipeline(container, items, projectTitle, projectId) {
   attachRowClickHandlers(allItems);
   attachToggleAllHandler(allItems);
   attachFilterHandlers(allItems);
+  // Activate pills and apply filter if restored from URL
+  if (activeTeamFilter) {
+    const btn = document.querySelector(`.filter-team-pill[data-team="${CSS.escape(activeTeamFilter)}"]`);
+    if (btn) pillActivate(btn, '#4E635E');
+  }
+  if (activeStateFilter) {
+    const btn = document.querySelector(`.filter-action-pill[data-action="${CSS.escape(activeStateFilter)}"]`);
+    if (btn) pillActivate(btn, ACTION_PILL_COLORS[activeStateFilter] || '#808C78');
+  }
+  if (activeTeamFilter || activeStateFilter) applyFilter(allItems);
   attachNewJourneyHandler(projectId);
   loadAllStakeholderBadges(allItems);
   loadInstructions();
@@ -290,6 +301,14 @@ function applyFilter(allItems) {
   if (noMatch) noMatch.classList.toggle('hidden', visible > 0);
 }
 
+function syncFiltersToUrl() {
+  const params = new URLSearchParams();
+  if (activeTeamFilter)  params.set('team',   activeTeamFilter);
+  if (activeStateFilter) params.set('action', activeStateFilter);
+  const qs = params.toString();
+  history.replaceState(null, '', qs ? '?' + qs : window.location.pathname);
+}
+
 const ACTION_PILL_COLORS = {
   'action:rnd': '#3B7CB8', 'action:docs': '#6AAE7B', 'action:red-team': '#E46962', 'mismatch': '#FA7B17',
 };
@@ -320,6 +339,7 @@ function attachFilterHandlers(allItems) {
         pillActivate(btn, ACTION_PILL_COLORS[key] || '#808C78');
       }
       applyFilter(allItems);
+      syncFiltersToUrl();
     });
   });
 
@@ -336,6 +356,7 @@ function attachFilterHandlers(allItems) {
         pillActivate(btn, '#4E635E');
       }
       applyFilter(allItems);
+      syncFiltersToUrl();
     });
   });
 }

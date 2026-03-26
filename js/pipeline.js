@@ -149,49 +149,39 @@ export function renderPipeline(container, items, projectTitle, projectId) {
   loadInstructions();
 }
 
-async function loadInstructions() {
+function loadInstructions() {
   const content = document.getElementById('instructions-content');
   if (!content) return;
 
-  let text;
-  try {
-    const res = await fetch('./README.md');
-    if (!res.ok) return;
-    text = await res.text();
-  } catch { return; }
+  const usageText = `## Usage
 
-  content.innerHTML = renderMarkdown(text);
+For Logos R&D Leads.
 
-  // Transform mermaid fenced code blocks into mermaid divs
-  content.querySelectorAll('pre > code.language-mermaid').forEach(code => {
-    const div = document.createElement('div');
-    div.className = 'mermaid';
-    div.textContent = code.textContent;
-    code.parentElement.replaceWith(div);
-  });
+1. Go to https://journeys.logos.co or run locally with \`npx serve .\`.
+2. Follow instructions to enter GitHub PAT Token.
+3. **Filter by team**: Click on your team in the "Team:" line.
+4. **Filter by action needed**: use the filter bar at the top to show only journeys where your team has an open action: \`action:rnd\`.
+5. **Expand a journey**: click any row to open the detail panel. It shows the full workflow state for R&D, Doc Packet, Documentation, and Red Team.
+6. **Enable editing**: click the **Edit** button in the header. Once active, the button shows **Editing** in coral.
+7. **Fill in missing information**: with editing enabled, each workflow section shows an input field. Paste the relevant URL or value and press Enter (or click ✓) to save directly to the GitHub issue.
 
-  // Load and render mermaid — isolated so failures don't wipe the content
-  const mermaidNodes = content.querySelectorAll('.mermaid');
-  if (mermaidNodes.length) {
-    try {
-      if (!window.mermaid) {
-        await new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-          s.onload = resolve;
-          s.onerror = reject;
-          document.head.appendChild(s);
-        });
-      }
-      window.mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
-      for (let i = 0; i < mermaidNodes.length; i++) {
-        const node = mermaidNodes[i];
-        const text = node.textContent.trim();
-        const { svg } = await window.mermaid.render('mermaid-diagram-' + i, text);
-        node.innerHTML = svg;
-      }
-    } catch { /* mermaid unavailable — leave code blocks as text */ }
-  }
+> **Settings** (gear icon): change the owner, project number, or token at any time.
+
+### Missing Information for R&D Logos Lead
+
+As a first step, Logos R&D Leads need to:
+
+1. Verify their journeys are correct, with the right target release.
+2. Ensure there are no missing journeys. Click "+ New Journey" to add a journey in **Editing** mode.
+3. Expand a journey (start from the top).
+   1. If the software is already delivered, jump to "doc packet" and fill in the GitHub issue template.
+   2. For software yet to be done, start with the "R&D" section, and enter a link to the milestone. Once known, enter the date.`;
+
+  content.innerHTML = renderMarkdown(usageText) +
+    `<p class="mt-4 text-xs" style="font-family:Arial,Helvetica,sans-serif;color:#808C78;">
+      <a href="https://github.com/logos-co/journeys.logos.co#readme" target="_blank" rel="noopener"
+         style="color:#E46962;text-decoration:underline;text-underline-offset:2px;">More information →</a>
+    </p>`;
 }
 
 window._toggleInstructions = () => {

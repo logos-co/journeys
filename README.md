@@ -6,13 +6,28 @@ Pre-configured for [logos-co / project 12](https://github.com/orgs/logos-co/proj
 
 ## Usage
 
-1. **Filter by action needed** — use the filter bar at the top to show only journeys where your team has an open action (`action:rnd`, `action:docs`, or `action:red-team`).
-2. **Expand a journey** — click any row to open the detail panel. It shows the full workflow state for R&D, Doc Packet, Documentation, and Red Team.
-3. **Enable editing** — click the **Edit** button in the header (requires a token with `project` + `public_repo` scopes — [generate one here](https://github.com/settings/tokens/new?scopes=project,public_repo&description=Priority+Pipeline)). Once active, the button shows **Editing** in coral.
-4. **Fill in missing information** — with editing enabled, each workflow section shows an input field. Paste the relevant URL or value and press Enter (or click ✓) to save directly to the GitHub issue.
-5. **Reorder journeys** — drag rows up or down to reprioritise. The new order is written back to the GitHub project board.
+For Logos R&D Leads.
+
+1. Go to https://journeys.logos.co or [run locally](#run-locally).
+2. Follow instructions to enter GitHub PAT Token.
+3. **Filter by team**: Click on your team in the "Team:" line.
+4. **Filter by action needed**: use the filter bar at the top to show only journeys where your team has an open action: `action:rnd`.
+5. **Expand a journey**: click any row to open the detail panel. It shows the full workflow state for R&D, Doc Packet, Documentation, and Red Team.
+6. **Enable editing**: click the **Edit** button in the header. Once active, the button shows **Editing** in coral.
+7. **Fill in missing information**: with editing enabled, each workflow section shows an input field. Paste the relevant URL or value and press Enter (or click ✓) to save directly to the GitHub issue.
 
 > **Settings** (gear icon): change the owner, project number, or token at any time.
+
+### Missing Information for R&D Logos Lead
+
+See [How a journey progresses](#how-a-journey-progresses) to understand the full flow.
+As a first step, Logos R&D Lead need to:
+
+1. Verify their journey are correct, with the right target release
+2. Ensure there are no missing journey. Click "+ New Journey" to add a journey in **Editing** mode.
+3. Expand a journey (start from the top).
+   1. If the software is already delivered, jump to "doc packet" and fill in the GitHub issue tempalte
+   2. For software yet to be done, start with the "R&D" section, and enter a link to the milestone. Once known, enter the date.
 
 ## How a journey progresses
 
